@@ -1,0 +1,28 @@
+name: Build and Test Frontend App
+
+on:
+  push:
+    branches:
+      - main  # Trigger this on push to main branch
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📦 Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: 🐳 Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: 🧱 Build Docker Image
+        run: |
+          docker build -t todo-frontend-app .
+
+      - name: 🧪 Run Container and Test
+        run: |
+          docker run -d -p 3000:3000 --name test-todo-app todo-frontend-app
+          sleep 10  # Give the app time to start
+          curl -f http://localhost:3000 || exit 1  # Fail the job if app doesn't respond
+
