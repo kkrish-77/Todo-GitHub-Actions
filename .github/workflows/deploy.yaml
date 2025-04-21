@@ -1,0 +1,32 @@
+name: Deploy Frontend App
+
+on:
+  push:
+    branches:
+      - main  # Trigger deployment on push to main branch
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📦 Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: 🚀 Start Minikube
+        run: |
+          minikube start
+
+      - name: 📦 Load Docker Image into Minikube
+        run: |
+          minikube image load todo-frontend-app
+
+      - name: 🧩 Deploy to Minikube
+        run: |
+          kubectl apply -f k8s/deployment.yaml
+          kubectl apply -f k8s/service.yaml
+
+      - name: 🧪 Test Minikube Deployment
+        run: |
+          minikube service todo-app --url
+          curl -f $(minikube service todo-app --url) || exit 1  # Fail the job if app doesn't respond
