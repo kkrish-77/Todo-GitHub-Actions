@@ -44,21 +44,21 @@ jobs:
     - name: Build
       run: |-
         docker build \
-          --tag "gcr.io/$PROJECT_ID/$IMAGE:$GITHUB_SHA" \
+          --tag "us-central1-docker.pkg.dev/$PROJECT_ID/todo-app/todo-frontend-app:$GITHUB_SHA" \
           --build-arg GITHUB_SHA="$GITHUB_SHA" \
           --build-arg GITHUB_REF="$GITHUB_REF" \
           .
-          
-    # Push the Docker image to Google Container Registry
+
+    # Push the Docker image to Artifact Registry
     - name: Push
       run: |-
-        docker push "gcr.io/$PROJECT_ID/$IMAGE:$GITHUB_SHA"
-        
+        docker push "us-central1-docker.pkg.dev/$PROJECT_ID/todo-app/todo-frontend-app:$GITHUB_SHA"
+
     # Update the image tag in deployment.yaml
     - name: Update deployment image
       run: |-
-        sed -i "s|todo-frontend-app:latest|gcr.io/$PROJECT_ID/$IMAGE:$GITHUB_SHA|g" k8s/deployment.yaml
-        
+        sed -i "s|us-central1-docker.pkg.dev/cloud-run-412614/todo-app/todo-frontend-app:latest|us-central1-docker.pkg.dev/$PROJECT_ID/todo-app/todo-frontend-app:$GITHUB_SHA|g" k8s/deployment.yaml
+
     # Deploy the Docker image to the GKE cluster
     - name: Deploy
       run: |-
