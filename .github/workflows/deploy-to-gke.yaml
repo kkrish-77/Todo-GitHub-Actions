@@ -30,56 +30,41 @@ jobs:
     - name: Setup Google Cloud CLI
       uses: google-github-actions/setup-gcloud@v1
 
-    - name: Install gke-gcloud-auth-plugin
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y apt-transport-https ca-certificates gnupg
-        echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | sudo tee -a /etc/apt/sources.list.d/google-cloud-sdk.list
-        curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key --keyring /usr/share/keyrings/cloud.google.gpg add -
-        sudo apt-get update
-        sudo apt-get install -y google-cloud-cli-gke-gcloud-auth-plugin
-        echo 'export USE_GKE_GCLOUD_AUTH_PLUGIN=True' >> $GITHUB_ENV
-
-    # Configure Docker to use the gcloud command-line tool as a credential helper for Artifact Registry
     - name: Configure Docker
       run: |-
-        gcloud --quiet auth configure-docker us-central1-docker.pkg.dev
+        gcloud auth configure-docker us-central1-docker.pkg.dev
 
-    # Get the GKE credentials so we can deploy to the cluster
     - name: Get GKE Credentials
       run: |-
         gcloud container clusters get-credentials "$GKE_CLUSTER" --zone "$GKE_ZONE" --project "$PROJECT_ID"
 
-    # Build the Docker image
     - name: Build
       run: |-
         docker build \
           --tag "us-central1-docker.pkg.dev/$PROJECT_ID/todo-app/todo-frontend-app:$GITHUB_SHA" \
-          --build-arg GITHUB_SHA="$GITHUB_SHA" \
-          --build-arg GITHUB_REF="$GITHUB_REF" \
+          --tag "us-central1-docker.pkg.dev/$PROJECT_ID/todo-app/todo-frontend-app:latest" \
           .
 
-    # Push the Docker image to Artifact Registry
     - name: Push
       run: |-
         docker push "us-central1-docker.pkg.dev/$PROJECT_ID/todo-app/todo-frontend-app:$GITHUB_SHA"
+        docker push "us-central1-docker.pkg.dev/$PROJECT_ID/todo-app/todo-frontend-app:latest"
 
-    # Update the image tag in deployment.yaml
-    - name: Update deployment image
-      run: |-
-        sed -i "s|us-central1-docker.pkg.dev/cloud-run-412614/todo-app/todo-frontend-app:latest|us-central1-docker.pkg.dev/$PROJECT_ID/todo-app/todo-frontend-app:$GITHUB_SHA|g" k8s/deployment.yaml
-
-    # Deploy the Docker image to the GKE cluster
     - name: Deploy
       run: |-
+        # Update deployment with new image
+        sed -i "s|us-central1-docker.pkg.dev/\${PROJECT_ID}/todo-app/todo-frontend-app:latest|us-central1-docker.pkg.dev/$PROJECT_ID/todo-app/todo-frontend-app:$GITHUB_SHA|g" k8s/deployment.yaml
+        
+        # Apply Kubernetes manifests
         kubectl apply -f k8s/deployment.yaml -n $NAMESPACE
         kubectl apply -f k8s/service.yaml -n $NAMESPACE
-        kubectl rollout status deployment/$DEPLOYMENT_NAME -n $NAMESPACE
         
-    # Get service information
+        # Wait for deployment to complete
+        kubectl rollout status deployment/$DEPLOYMENT_NAME -n $NAMESPACE --timeout=300s
+        
     - name: Get Service URL
       run: |-
         echo "Waiting for LoadBalancer external IP..."
         sleep 30
-        kubectl get services todo-app -o wide
+        kubectl get services todo-app -n $NAMESPACE -o wide
         echo "Your Todo app should be accessible via the LoadBalancer external IP on port 80" 
