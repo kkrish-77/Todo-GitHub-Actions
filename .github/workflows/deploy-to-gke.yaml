@@ -30,10 +30,10 @@ jobs:
     - name: Setup Google Cloud CLI
       uses: google-github-actions/setup-gcloud@v1
 
-    # Configure Docker to use the gcloud command-line tool as a credential helper
+    # Configure Docker to use the gcloud command-line tool as a credential helper for Artifact Registry
     - name: Configure Docker
       run: |-
-        gcloud --quiet auth configure-docker
+        gcloud --quiet auth configure-docker us-central1-docker.pkg.dev
 
     # Get the GKE credentials so we can deploy to the cluster
     - name: Get GKE Credentials
